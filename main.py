@@ -9,28 +9,57 @@ import random
 import requests
 
 from datetime import date
+from datetime import datetime
+
+from string import punctuation
 
 from discord.ext import commands
 from dotenv import load_dotenv
 
+
+def remove_unsafe_characters(search_phrase):
+    safe_search_phrase = search_phrase.translate(str.maketrans('', '', punctuation))
+    
+    return safe_search_phrase
+
+
 class Article:
     def __init__(self):
-        pass
+        self.source = ''
+        self.title= ''
+        self.description= ''
+        self.author = ''
+        self.url = ''
 
     def set_source(self, source):
-        self.source = source
+        try:
+            self.source += source
+        except Exception:
+            self.source = 'Unknown'
     
     def set_title(self, title):
-        self.title = title
+        try:
+            self.title += title
+        except Exception:
+            self.title = 'Unknown'
 
     def set_description(self, description):
-        self.description = description
+        try:
+            self.description += description
+        except Exception:
+            self.description = 'Unknown'
  
     def set_author(self, author):
-        self.author = author
+        try:
+            self.author += author
+        except Exception:
+            self.author = 'Unknown'
    
     def set_url(self, url):
-        self.url = url
+        try:
+            self.url += url
+        except Exception:
+            self.url = 'Unknown'
 
     def get_source(self):
         return self.source
@@ -89,33 +118,44 @@ async def on_ready():
     
 @bot.command(name='news')
 async def news(ctx):
-    search_phrase = ctx.message.content.lstrip(bot.command_prefix + ctx.command.name).lstrip().replace(' ', '+')
+    mention = ctx.message.author.mention
+    #mention = ctx.message.author.display_name
+    
+    search = ctx.message.content.lstrip(bot.command_prefix + ctx.command.name).lstrip()
+
+    search_phrase = remove_unsafe_characters(search)
+    search_phrase = search_phrase.replace(' ', '+')
+
     print(f'{ctx.message.author} is searching for {search_phrase}')
 
     date_today = str(date.today())
 
-    response = requests.get(f"http://newsapi.org/v2/everything?q={search_phrase}&language=en&from={date_today}&sortBy=publishedAt&apiKey={NEWS_KEY}")
+    url = f"http://newsapi.org/v2/everything?q={search_phrase}&language=en&from={date_today}&sortBy=publishedAt&apiKey={NEWS_KEY}"
+    print(url)
+
+    response = requests.get(url)
     data = response.json()
 
-    print(data)
+    #print(data)
     try:
         article_data = data['articles'][0]
 
 
         article = article_factory(article_data)
 
-        message = ctx.message.author.mention + '\n' + \
+        datetime_now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        message = f'{mention}'+ '\n' + \
             '**' + article.get_title() + '**' + '\n' + \
             '==========================' + '\n' + \
             article.get_description() + '\n' + \
             'Author(s): ' + article.get_author() + '\n' + \
             'Source: ' + article.get_source() + '\n' + \
-            'More at: ' + article.get_url() + '\n'
+            'More at: ' + article.get_url() + '\n' + \
+            'Search time: ' + str(datetime_now) + '\n'
             #message = 'There are no articles with this title today'
-    except IndexError:
-        message = f'No news about {search_phrase} today'
-    except KeyError:
-        pass
+    except LookupError:
+        message = f'No news about "{search}" today'
 
     await ctx.send(message)
     
